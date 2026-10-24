@@ -103,6 +103,39 @@ footer { display: none !important; }
     border-radius: 14px !important;
     padding: 6px !important;
 }
+
+/* Teks grafik: judul, label sumbu, angka tick, legend */
+.panel text,
+.panel svg text,
+.panel .vega-embed text {
+    fill: #12303B !important;
+}
+.panel .role-title text,
+.panel .role-title-text text {
+    fill: #12303B !important;
+    font-weight: 700 !important;
+    font-size: 15px !important;
+}
+.panel .role-axis-title text {
+    fill: #12303B !important;
+    font-weight: 600 !important;
+    font-size: 12px !important;
+}
+.panel .role-axis-label text {
+    fill: #2E4652 !important;
+    font-size: 11px !important;
+}
+
+/* Garis grid & sumbu dibuat lebih halus supaya teks lebih menonjol */
+.panel .role-axis-grid line,
+.panel .role-axis-grid path {
+    stroke: #DCE4E9 !important;
+}
+.panel .role-axis-domain,
+.panel .role-axis-tick line {
+    stroke: #5B6B75 !important;
+}
+
 .judul-bagian {
     font-size: 1.05rem;
     font-weight: 600;
@@ -300,6 +333,7 @@ with gr.Blocks(
             title="Suhu DHT11",
             x_title="Waktu",
             y_title="°C",
+            x_label_angle=-45,
             height=280,
             elem_classes="panel"
         )
@@ -309,6 +343,7 @@ with gr.Blocks(
             title="Kelembapan DHT11",
             x_title="Waktu",
             y_title="%",
+            x_label_angle=-45,
             height=280,
             elem_classes="panel"
         )
@@ -319,6 +354,7 @@ with gr.Blocks(
         title="Interval Pengiriman MQTT",
         x_title="Waktu",
         y_title="ms",
+        x_label_angle=-45,
         height=240,
         elem_classes="panel"
     )
