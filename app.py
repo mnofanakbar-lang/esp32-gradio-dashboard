@@ -225,6 +225,7 @@ def ambil_data():
 
             rows.append({
                 "Waktu": waktu.strftime("%d/%m %H:%M:%S"),
+                "_dt": waktu.tz_localize(None),
                 "Suhu (°C)": paket.get("temperature_c"),
                 "Kelembapan (%)": paket.get("humidity_pct"),
                 "Interval (ms)": paket.get("interval_ms"),
@@ -239,10 +240,19 @@ def ambil_data():
         return data_kosong("Belum ditemukan paket JSON yang valid.")
 
     # API mengembalikan data terbaru lebih dulu
-    df = pd.DataFrame(rows[::-1], columns=KOLOM)
+    semua = pd.DataFrame(rows[::-1])
 
     for kolom in ["Suhu (°C)", "Kelembapan (%)", "Interval (ms)"]:
-        df[kolom] = pd.to_numeric(df[kolom], errors="coerce")
+        semua[kolom] = pd.to_numeric(semua[kolom], errors="coerce")
+
+    # Tabel: waktu sebagai teks
+    df = semua[KOLOM]
+
+    # Grafik: waktu sebagai datetime asli, supaya label sumbu-X
+    # otomatis dijarangkan dan tidak menumpuk
+    df_plot = semua.drop(columns=["Waktu"]).rename(
+        columns={"_dt": "Waktu"}
+    )
 
     terbaru = df.iloc[-1]
 
@@ -262,9 +272,9 @@ def ambil_data():
             angka(terbaru["Kelembapan (%)"]),
             angka(terbaru["Interval (ms)"]),
         ),
-        df,
-        df,
-        df,
+        df_plot,
+        df_plot,
+        df_plot,
         df.iloc[::-1].reset_index(drop=True)
     )
 
