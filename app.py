@@ -477,6 +477,30 @@ footer {
     stroke: #5B6B75 !important;
 }
 
+/* TOMBOL TAB: teks selalu jelas (tidak transparan) di tema terang/gelap */
+
+button[role="tab"] {
+    color: #12303B !important;
+    opacity: 1 !important;
+    font-weight: 600 !important;
+    background: #FFFFFF !important;
+    border: 1px solid #DCE4E9 !important;
+    border-radius: 10px 10px 0 0 !important;
+    margin-right: 4px !important;
+}
+
+button[role="tab"]:hover {
+    color: #0F766E !important;
+    background: #E6F2F1 !important;
+}
+
+button[role="tab"][aria-selected="true"],
+button[role="tab"].selected {
+    color: #FFFFFF !important;
+    background: #0F766E !important;
+    border-color: #0F766E !important;
+}
+
 /* TABEL RIWAYAT: judul kolom tidak dipecah per huruf */
 
 .tabel-riwayat th,
