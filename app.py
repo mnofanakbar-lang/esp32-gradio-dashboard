@@ -437,6 +437,23 @@ footer {
     stroke: #5B6B75 !important;
 }
 
+/* TABEL RIWAYAT: judul kolom tidak dipecah per huruf */
+
+.tabel-riwayat th,
+.tabel-riwayat th *,
+.tabel-riwayat td,
+.tabel-riwayat td * {
+    white-space: nowrap !important;
+    word-break: keep-all !important;
+    overflow-wrap: normal !important;
+    writing-mode: horizontal-tb !important;
+}
+
+.tabel-riwayat th {
+    font-size: .8rem !important;
+    padding: 6px 8px !important;
+}
+
 .judul-bagian {
     font-size: 1.05rem;
     font-weight: 600;
@@ -1325,10 +1342,10 @@ with gr.Blocks(
             tabel = gr.Dataframe(
                 headers=KOLOM,
                 interactive=False,
-                wrap=True,
-                max_height=340,
+                wrap=False,
+                max_height=420,
                 show_label=False,
-                elem_classes="panel"
+                elem_classes=["panel", "tabel-riwayat"]
             )
 
             tombol = gr.Button(
