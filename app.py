@@ -1190,7 +1190,10 @@ def ambil_data(g_esp=2.0, pt_ap=15.0, g_ap=0.0, l_sis=2.0,
                     "%d/%m %H:%M:%S"
                 ),
 
-                "_dt": waktu_wib.tz_localize(None),
+                # Grafik: kirim waktu UTC (tanpa zona). Gradio/Vega
+                # menganggapnya UTC lalu browser menampilkan jam lokal
+                # (WIB). Bila dikirim jam WIB, sumbu bergeser +7 jam.
+                "_dt": created_at.tz_convert("UTC").tz_localize(None),
 
                 "_created": created_at,
 
@@ -1661,6 +1664,7 @@ with gr.Blocks(
 
             grafik_rtt = gr.LinePlot(
                 x="Waktu",
+                x_axis_format="%H:%M:%S",
                 y="Latency (ms)",
                 color="Kurva",
                 title="Latency RTT live",
@@ -1682,6 +1686,7 @@ with gr.Blocks(
 
             grafik_jarak = gr.LinePlot(
                 x="Waktu",
+                x_axis_format="%H:%M:%S",
                 y="Jarak (m)",
                 color="Kurva",
                 title="Estimasi jarak ESP32 → hotspot vs radius coverage",
@@ -1696,6 +1701,7 @@ with gr.Blocks(
 
                 grafik_suhu = gr.LinePlot(
                     x="Waktu",
+                    x_axis_format="%H:%M:%S",
                     y="Suhu (°C)",
                     title="Suhu DHT11",
                     x_title="Waktu",
@@ -1707,6 +1713,7 @@ with gr.Blocks(
 
                 grafik_lembap = gr.LinePlot(
                     x="Waktu",
+                    x_axis_format="%H:%M:%S",
                     y="Kelembapan (%)",
                     title="Kelembapan DHT11",
                     x_title="Waktu",
@@ -1718,6 +1725,7 @@ with gr.Blocks(
 
             grafik_interval = gr.LinePlot(
                 x="Waktu",
+                x_axis_format="%H:%M:%S",
                 y="Interval (ms)",
                 title="Interval Pengiriman MQTT",
                 x_title="Waktu",
@@ -1763,6 +1771,7 @@ with gr.Blocks(
 
             grafik_lb = gr.LinePlot(
                 x="Waktu",
+                x_axis_format="%H:%M:%S",
                 y="Daya (dBm)",
                 color="Kurva",
                 title="Link budget live: daya diterima vs ambang andal",
