@@ -103,11 +103,12 @@ def pl_d0_db():
     return 20 * math.log10(4 * math.pi * D0_M / lambda_m())
 
 
-def path_loss_db(d, n, n_dinding, loss_dinding):
-    """Log-distance + redaman partisi, Pers. (3.69)/(3.93)."""
+def path_loss_db(d, n, n_dinding, loss_dinding, offset_kal=0.0):
+    """Log-distance + redaman partisi, Pers. (3.69)/(3.93).
+    offset_kal = koreksi PL(d0) hasil kalibrasi uji jarak (dB)."""
     d = max(d, D0_M)
     return (
-        pl_d0_db()
+        pl_d0_db() + offset_kal
         + 10 * n * math.log10(d / D0_M)
         + n_dinding * loss_dinding
     )
@@ -119,23 +120,24 @@ def margin_fading_db(sigma, keandalan_pct):
     return sigma * NormalDist().inv_cdf(p)
 
 
-def jarak_maks_m(eirp, g_rx, l_sis, sens, margin, n, n_dinding, loss_dinding):
+def jarak_maks_m(eirp, g_rx, l_sis, sens, margin, n, n_dinding, loss_dinding,
+                 offset_kal=0.0):
     """Jarak terjauh d sehingga Pr(d) >= sensitivitas + margin."""
     pl_izin = eirp + g_rx - l_sis - (sens + margin)
-    sisa = pl_izin - pl_d0_db() - n_dinding * loss_dinding
+    sisa = pl_izin - (pl_d0_db() + offset_kal) - n_dinding * loss_dinding
     return D0_M * 10 ** (sisa / (10 * n))
 
 
 def hitung_coverage(pt_esp, g_esp, pt_ap, g_ap, l_sis, n, sigma,
-                    n_dinding, loss_dinding, keandalan):
+                    n_dinding, loss_dinding, keandalan, offset_kal=0.0):
     margin = margin_fading_db(sigma, keandalan)
     baris = []
     for nama, pt_tabel, sens, phy, _ in SKEMA_WIFI:
         pt_up = min(pt_esp, pt_tabel)
         d_up = jarak_maks_m(pt_up + g_esp, g_ap, l_sis, sens, margin,
-                            n, n_dinding, loss_dinding)
+                            n, n_dinding, loss_dinding, offset_kal)
         d_dn = jarak_maks_m(pt_ap + g_ap, g_esp, l_sis, sens, margin,
-                            n, n_dinding, loss_dinding)
+                            n, n_dinding, loss_dinding, offset_kal)
         baris.append({
             "Skema Wi-Fi": nama,
             "Pt ESP32 (dBm)": round(pt_up, 1),
@@ -1066,10 +1068,18 @@ def data_kosong(pesan):
 
 PT_ESP_DEFAULT = 19.5   # dipakai hanya bila firmware belum mengirim tx_dbm
 
+# Model propagasi TERKALIBRASI dari uji jarak lapangan 1–30 m (406 paket,
+# regresi Rappaport §3.9.2): PL(d) = 49,4 + 10·3,47·log(d) + Xσ, σ = 5,0 dB.
+# PL(d0) terukur 9,25 dB di atas ruang bebas (40,2 dB); tanpa dinding.
+KAL_N = 3.47
+KAL_SIGMA = 5.0
+KAL_DINDING = 0
+KAL_OFFSET = 9.25
+
 
 def ambil_data(g_esp=2.0, pt_ap=15.0, g_ap=0.0, l_sis=2.0,
-               n=3.0, sigma=7.0, n_dinding=1, loss_dinding=13.0,
-               keandalan=90, offset_kal=0.0,
+               n=KAL_N, sigma=KAL_SIGMA, n_dinding=KAL_DINDING,
+               loss_dinding=13.0, keandalan=90, offset_kal=KAL_OFFSET,
                kp_cloud=None, kp_ap=None, kp_phy=None, kp_n=1, kp_util=50):
     """Membaca feed Adafruit IO lalu menghitung SELURUH dashboard dari
     data live ESP32 (daya pancar, RSSI, interval, ukuran paket).
@@ -1286,7 +1296,7 @@ def ambil_data(g_esp=2.0, pt_ap=15.0, g_ap=0.0, l_sis=2.0,
 
     tabel_cov, _ = hitung_coverage(pt_esp, g_esp, pt_ap, g_ap, l_sis, n,
                                    sigma, n_dinding, loss_dinding,
-                                   keandalan)
+                                   keandalan, offset_kal)
     radius = float(tabel_cov.iloc[3]["Radius coverage (m)"])
 
     df_jarak = pd.concat([
@@ -1320,7 +1330,7 @@ def ambil_data(g_esp=2.0, pt_ap=15.0, g_ap=0.0, l_sis=2.0,
     # Tab Coverage & Kapasitas dihitung dari data live:
     # Pt ESP32 terukur, interval kirim & ukuran paket terukur.
     out_cov = tampil_coverage(pt_esp, g_esp, pt_ap, g_ap, l_sis, n, sigma,
-                              n_dinding, loss_dinding, keandalan)
+                              n_dinding, loss_dinding, keandalan, offset_kal)
     ia = pd.to_numeric(semua["Interval (ms)"], errors="coerce").dropna()
     interval_live = round(float(ia.mean()) / 1000, 2) if len(ia) else 5.0
     payload_live = float(semua["_bytes"].mean())
@@ -1452,11 +1462,11 @@ def ambil_data(g_esp=2.0, pt_ap=15.0, g_ap=0.0, l_sis=2.0,
 # =====================================================
 
 def tampil_coverage(pt_esp, g_esp, pt_ap, g_ap, l_sis, n, sigma,
-                    n_dinding, loss_dinding, keandalan):
+                    n_dinding, loss_dinding, keandalan, offset_kal=0.0):
 
     tabel, margin = hitung_coverage(
         pt_esp, g_esp, pt_ap, g_ap, l_sis, n, sigma,
-        n_dinding, loss_dinding, keandalan
+        n_dinding, loss_dinding, keandalan, offset_kal
     )
 
     r_1m = float(tabel.iloc[0]["Radius coverage (m)"])
@@ -1472,7 +1482,7 @@ def tampil_coverage(pt_esp, g_esp, pt_ap, g_ap, l_sis, n, sigma,
     pt_up = min(pt_esp, SKEMA_WIFI[3][1])  # daya TX ESP32 untuk MCS0
     data = []
     for d in jarak:
-        pl = path_loss_db(d, n, n_dinding, loss_dinding)
+        pl = path_loss_db(d, n, n_dinding, loss_dinding, offset_kal)
         data.append((d, pt_up + g_esp + g_ap - l_sis - pl,
                      "Uplink ESP32 → AP"))
         data.append((d, pt_ap + g_ap + g_esp - l_sis - pl,
@@ -1485,7 +1495,7 @@ def tampil_coverage(pt_esp, g_esp, pt_ap, g_ap, l_sis, n, sigma,
         data, columns=["Jarak (m)", "Daya terima (dBm)", "Kurva"]
     )
 
-    pl0 = pl_d0_db()
+    pl0 = pl_d0_db() + offset_kal      # PL(d0) terkalibrasi
     eirp = pt_up + g_esp
     ringkas = f"""
 <div class="info">
@@ -1507,7 +1517,7 @@ Pr(d) = EIRP + Gr − L − PL(d) ≥ Sensitivitas + Margin  →  d_maks</span>
 """
     # Kartu link budget rencana di tepi sel (radius MCS0)
     pl_jarak = 10 * n * math.log10(max(r_mcs0, 1))
-    pl_r = path_loss_db(r_mcs0, n, n_dinding, loss_dinding)
+    pl_r = path_loss_db(r_mcs0, n, n_dinding, loss_dinding, offset_kal)
     pr_ul = eirp + g_ap - l_sis - pl_r
     pr_dl = pt_ap + g_ap + g_esp - l_sis - pl_r
     sens = SKEMA_WIFI[3][2]
@@ -1517,10 +1527,11 @@ Pr(d) = EIRP + Gr − L − PL(d) ≥ Sensitivitas + Margin  →  d_maks</span>
         ("EIRP hotspot (downlink)", f"{pt_ap + g_ap:.1f}", "dBm",
          f"Pt {pt_ap:.1f} dBm + Gt {g_ap:.1f} dBi (asumsi)", "#D9480F"),
         ("Path loss total di tepi sel", f"{pl_r:.1f}", "dB",
-         f"PL(d0) {pl0:.1f} + 10·n·log d {pl_jarak:.1f} + dinding "
+         f"PL(d0) {pl0:.1f} + 10·{n:.2f}·log d {pl_jarak:.1f} + dinding "
          f"{n_dinding * loss_dinding:.0f} dB", "#7048E8"),
         ("Radius tepi sel", f"{r_mcs0:.1f}", "m",
-         f"802.11n MCS0, keandalan {keandalan:.0f}%", "#5F3DC4"),
+         f"802.11n MCS0, keandalan {keandalan:.0f}%, σ {sigma:.1f} dB "
+         f"(model terkalibrasi uji jarak)", "#5F3DC4"),
         ("Daya diterima hotspot", f"{pr_ul:.1f}", "dBm",
          f"uplink, rugi sistem {l_sis:.1f} dB", "#1C7ED6"),
         ("Daya diterima ESP32", f"{pr_dl:.1f}", "dBm",
@@ -1816,8 +1827,8 @@ with gr.Blocks(
             )
 
             with gr.Accordion(
-                "Asumsi model propagasi (konstanta Rappaport — tidak "
-                "diukur ESP32)", open=False
+                "Model propagasi (terkalibrasi uji jarak 1–30 m: n = 3,47, "
+                "σ = 5,0 dB, koreksi PL(d0) +9,25 dB)", open=False
             ):
                 with gr.Row():
                     with gr.Column():
@@ -1829,14 +1840,14 @@ with gr.Blocks(
                                             label="Gain antena titik akses (dBi)")
                         cv_l_sis = gr.Slider(0, 10, value=2.0, step=0.5,
                                              label="Rugi sistem L (dB)")
-                        cv_offset = gr.Slider(-20, 20, value=0.0, step=0.5,
-                                              label="Koreksi kalibrasi PL(d0) (dB)")
+                        cv_offset = gr.Slider(-20, 20, value=KAL_OFFSET, step=0.05,
+                                              label="Koreksi PL(d0) terukur (dB)")
                     with gr.Column():
-                        cv_n = gr.Slider(1.6, 6.0, value=3.0, step=0.1,
-                                         label="Eksponen path loss n (Tabel 3.2)")
-                        cv_sigma = gr.Slider(0, 14, value=7.0, step=0.5,
-                                             label="Deviasi shadowing σ (dB)")
-                        cv_dinding = gr.Slider(0, 5, value=1, step=1,
+                        cv_n = gr.Slider(1.6, 6.0, value=KAL_N, step=0.01,
+                                         label="Eksponen path loss n (terukur)")
+                        cv_sigma = gr.Slider(0, 14, value=KAL_SIGMA, step=0.1,
+                                             label="Deviasi shadowing σ (dB, terukur)")
+                        cv_dinding = gr.Slider(0, 5, value=KAL_DINDING, step=1,
                                                label="Jumlah dinding/partisi")
                         cv_loss_dinding = gr.Slider(0, 20, value=13.0, step=0.5,
                                                     label="Redaman per dinding (dB), Tabel 3.3")
